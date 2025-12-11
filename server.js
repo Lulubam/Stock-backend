@@ -1,48 +1,10 @@
 // ========================================
-// COMPLETE NODE.JS BACKEND SERVER
-// Stock scraper + REST API + CORS support
+// COMPLETE OPTIMIZED BACKEND FOR RENDER
 // ========================================
-
-// FILE STRUCTURE:
-// project/
-// ├── server.js (this file)
-// ├── package.json
-// ├── .env
-// └── scrapers/
-//     ├── nigeriaScraper.js
-//     ├── kenyaScraper.js
-//     └── rwandaScraper.js
-
-// ========================================
-// INSTALLATION INSTRUCTIONS
-// ========================================
-/*
-1. Create a new folder for your project
-2. Run: npm init -y
-3. Install dependencies:
-   npm install express cors axios cheerio puppeteer dotenv node-cron
-
-4. Create .env file with:
-   PORT=3001
-   NODE_ENV=development
-
-5. Run the server:
-   node server.js
-
-6. For production:
-   npm install -g pm2
-   pm2 start server.js
-*/
-
-// ========================================
-// server.js - MAIN SERVER FILE
-// ========================================
-
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const puppeteer = require('puppeteer');
 const cron = require('node-cron');
 require('dotenv').config();
 
@@ -53,7 +15,7 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory cache for stock data
+// In-memory cache
 let stockCache = {
   nigeria: { data: [], lastUpdate: null },
   kenya: { data: [], lastUpdate: null },
@@ -61,19 +23,15 @@ let stockCache = {
 };
 
 // ========================================
-// NIGERIA SCRAPER
+// SIMPLIFIED SCRAPERS
 // ========================================
 
 class NigeriaScraper {
   async scrapeStocks() {
     try {
       console.log('Scraping Nigerian stocks...');
-      
-      // Method 1: Using afx.kwayisi.org (reliable, well-structured)
       const response = await axios.get('https://afx.kwayisi.org/ngx/', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
+        headers: { 'User-Agent': 'Mozilla/5.0' },
         timeout: 10000
       });
       
@@ -89,7 +47,7 @@ class NigeriaScraper {
           const changePercentText = $(cells[3]).text().trim();
           const volumeText = $(cells[4]).text().trim();
           
-          if (symbol && symbol.length > 0) {
+          if (symbol) {
             const price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
             const change = parseFloat(changeText.replace(/[^\d.-]/g, '')) || 0;
             const changePercent = parseFloat(changePercentText.replace(/[^\d.-]/g, '')) || 0;
@@ -110,7 +68,7 @@ class NigeriaScraper {
       });
       
       console.log(`✓ Scraped ${stocks.length} Nigerian stocks`);
-      return stocks;
+      return stocks.length > 0 ? stocks : this.getFallbackData();
       
     } catch (error) {
       console.error('Nigeria scraping error:', error.message);
@@ -118,65 +76,11 @@ class NigeriaScraper {
     }
   }
   
-  // Alternative method using Puppeteer for official NGX site
-  async scrapeOfficialNGX() {
-    let browser;
-    try {
-      console.log('Scraping official NGX site...');
-      
-      browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      
-      const page = await browser.newPage();
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      
-      await page.goto('https://ngxgroup.com/exchange/data/equities-price-list/', {
-        waitUntil: 'networkidle2',
-        timeout: 30000
-      });
-      
-      // Wait for table to load
-      await page.waitForSelector('table', { timeout: 10000 });
-      
-      const stocks = await page.evaluate(() => {
-        const rows = Array.from(document.querySelectorAll('table tbody tr'));
-        return rows.map(row => {
-          const cells = row.querySelectorAll('td');
-          if (cells.length >= 4) {
-            return {
-              symbol: cells[0]?.textContent.trim(),
-              price: cells[1]?.textContent.trim(),
-              change: cells[2]?.textContent.trim(),
-              volume: cells[3]?.textContent.trim(),
-              market: 'nigeria',
-              currency: 'NGN'
-            };
-          }
-          return null;
-        }).filter(stock => stock && stock.symbol);
-      });
-      
-      await browser.close();
-      console.log(`✓ Scraped ${stocks.length} stocks from official NGX`);
-      return stocks;
-      
-    } catch (error) {
-      if (browser) await browser.close();
-      console.error('NGX official scraping error:', error.message);
-      return [];
-    }
-  }
-  
   getFallbackData() {
-    // Return some popular Nigerian stocks as fallback
     return [
       { symbol: 'DANGCEM', name: 'Dangote Cement', price: '285.00', change: '2.50', changePercent: '0.89', volume: '1250000', market: 'nigeria', currency: 'NGN' },
       { symbol: 'MTNN', name: 'MTN Nigeria', price: '195.00', change: '-1.20', changePercent: '-0.61', volume: '850000', market: 'nigeria', currency: 'NGN' },
-      { symbol: 'BUACEMENT', name: 'BUA Cement', price: '78.50', change: '0.80', changePercent: '1.03', volume: '620000', market: 'nigeria', currency: 'NGN' },
-      { symbol: 'GTCO', name: 'Guaranty Trust Holding', price: '32.50', change: '0.30', changePercent: '0.93', volume: '4500000', market: 'nigeria', currency: 'NGN' },
-      { symbol: 'SEPLAT', name: 'Seplat Energy', price: '2150.00', change: '15.00', changePercent: '0.70', volume: '125000', market: 'nigeria', currency: 'NGN' }
+      { symbol: 'BUACEMENT', name: 'BUA Cement', price: '78.50', change: '0.80', changePercent: '1.03', volume: '620000', market: 'nigeria', currency: 'NGN' }
     ].map(stock => ({
       ...stock,
       timestamp: new Date().toISOString()
@@ -184,19 +88,12 @@ class NigeriaScraper {
   }
 }
 
-// ========================================
-// KENYA SCRAPER
-// ========================================
-
 class KenyaScraper {
   async scrapeStocks() {
     try {
       console.log('Scraping Kenyan stocks...');
-      
       const response = await axios.get('https://afx.kwayisi.org/nse/', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
+        headers: { 'User-Agent': 'Mozilla/5.0' },
         timeout: 10000
       });
       
@@ -212,7 +109,7 @@ class KenyaScraper {
           const changePercentText = $(cells[3]).text().trim();
           const volumeText = $(cells[4]).text().trim();
           
-          if (symbol && symbol.length > 0) {
+          if (symbol) {
             const price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
             const change = parseFloat(changeText.replace(/[^\d.-]/g, '')) || 0;
             const changePercent = parseFloat(changePercentText.replace(/[^\d.-]/g, '')) || 0;
@@ -233,7 +130,7 @@ class KenyaScraper {
       });
       
       console.log(`✓ Scraped ${stocks.length} Kenyan stocks`);
-      return stocks;
+      return stocks.length > 0 ? stocks : this.getFallbackData();
       
     } catch (error) {
       console.error('Kenya scraping error:', error.message);
@@ -243,11 +140,8 @@ class KenyaScraper {
   
   getFallbackData() {
     return [
-      { symbol: 'EQTY', name: 'Equity Group Holdings', price: '45.50', change: '0.75', changePercent: '1.68', volume: '2500000', market: 'kenya', currency: 'KES' },
-      { symbol: 'KCB', name: 'KCB Group', price: '32.25', change: '-0.50', changePercent: '-1.53', volume: '1800000', market: 'kenya', currency: 'KES' },
-      { symbol: 'SAFCOM', name: 'Safaricom', price: '18.75', change: '0.25', changePercent: '1.35', volume: '8500000', market: 'kenya', currency: 'KES' },
-      { symbol: 'SCBK', name: 'Standard Chartered Bank', price: '165.00', change: '2.00', changePercent: '1.23', volume: '450000', market: 'kenya', currency: 'KES' },
-      { symbol: 'BAMB', name: 'Bamburi Cement', price: '35.50', change: '-0.25', changePercent: '-0.70', volume: '320000', market: 'kenya', currency: 'KES' }
+      { symbol: 'EQTY', name: 'Equity Group', price: '45.50', change: '0.75', changePercent: '1.68', volume: '2500000', market: 'kenya', currency: 'KES' },
+      { symbol: 'KCB', name: 'KCB Group', price: '32.25', change: '-0.50', changePercent: '-1.53', volume: '1800000', market: 'kenya', currency: 'KES' }
     ].map(stock => ({
       ...stock,
       timestamp: new Date().toISOString()
@@ -255,18 +149,12 @@ class KenyaScraper {
   }
 }
 
-// ========================================
-// RWANDA SCRAPER
-// ========================================
-
 class RwandaScraper {
   async scrapeStocks() {
     try {
-      console.log('Scraping Rwandan stocks...');
-      
-      // Rwanda has very limited online data, using fallback
+      console.log('Fetching Rwandan stocks...');
+      // Rwanda has limited online data - using fallback
       return this.getFallbackData();
-      
     } catch (error) {
       console.error('Rwanda scraping error:', error.message);
       return this.getFallbackData();
@@ -276,8 +164,7 @@ class RwandaScraper {
   getFallbackData() {
     return [
       { symbol: 'BK', name: 'Bank of Kigali', price: '320', change: '5', changePercent: '1.59', volume: '15000', market: 'rwanda', currency: 'RWF' },
-      { symbol: 'BLR', name: 'Bralirwa', price: '185', change: '-2', changePercent: '-1.07', volume: '8000', market: 'rwanda', currency: 'RWF' },
-      { symbol: 'I&M', name: 'I&M Bank Rwanda', price: '2100', change: '10', changePercent: '0.48', volume: '3500', market: 'rwanda', currency: 'RWF' }
+      { symbol: 'BLR', name: 'Bralirwa', price: '185', change: '-2', changePercent: '-1.07', volume: '8000', market: 'rwanda', currency: 'RWF' }
     ].map(stock => ({
       ...stock,
       timestamp: new Date().toISOString()
@@ -286,7 +173,7 @@ class RwandaScraper {
 }
 
 // ========================================
-// MASTER SCRAPER SERVICE
+// STOCK SCRAPER SERVICE
 // ========================================
 
 class StockScraperService {
@@ -357,12 +244,12 @@ const scraperService = new StockScraperService();
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    service: 'African Stock Market Scraper API',
+    service: 'African Stock Market API',
     version: '1.0.0',
     endpoints: {
-      allMarkets: '/api/stocks',
-      specificMarket: '/api/stocks/:market',
-      refresh: '/api/refresh',
+      allStocks: '/api/stocks',
+      marketStocks: '/api/stocks/:market',
+      refreshAll: '/api/refresh',
       refreshMarket: '/api/refresh/:market'
     }
   });
@@ -396,7 +283,7 @@ app.get('/api/stocks', (req, res) => {
   }
 });
 
-// Get stocks from specific market (from cache)
+// Get stocks from specific market
 app.get('/api/stocks/:market', (req, res) => {
   try {
     const { market } = req.params;
@@ -470,7 +357,7 @@ app.post('/api/refresh/:market', async (req, res) => {
   }
 });
 
-// Search stocks by symbol
+// Search stocks
 app.get('/api/search', (req, res) => {
   try {
     const { q } = req.query;
@@ -490,7 +377,7 @@ app.get('/api/search', (req, res) => {
     
     const results = allStocks.filter(stock => 
       stock.symbol.toLowerCase().includes(q.toLowerCase()) ||
-      stock.name?.toLowerCase().includes(q.toLowerCase())
+      stock.name.toLowerCase().includes(q.toLowerCase())
     );
     
     res.json({
@@ -511,8 +398,8 @@ app.get('/api/search', (req, res) => {
 // SCHEDULED TASKS
 // ========================================
 
-// Scrape all markets every 15 minutes
-cron.schedule('*/15 * * * *', async () => {
+// Scrape every 30 minutes (less frequent for Render)
+cron.schedule('*/30 * * * *', async () => {
   console.log('\n--- Scheduled scrape starting ---');
   try {
     await scraperService.scrapeAllMarkets();
@@ -527,16 +414,13 @@ cron.schedule('*/15 * * * *', async () => {
 
 app.listen(PORT, async () => {
   console.log('\n========================================');
-  console.log('🚀 African Stock Market Scraper API');
+  console.log('🚀 African Stock Market API');
   console.log('========================================');
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log('\nAPI Endpoints:');
   console.log(`  GET  http://localhost:${PORT}/api/stocks`);
-  console.log(`  GET  http://localhost:${PORT}/api/stocks/:market`);
   console.log(`  POST http://localhost:${PORT}/api/refresh`);
-  console.log(`  GET  http://localhost:${PORT}/api/search?q=symbol`);
-  console.log('\nSupported Markets: nigeria, kenya, rwanda');
   console.log('========================================\n');
   
   // Initial scrape on startup
@@ -545,19 +429,9 @@ app.listen(PORT, async () => {
     await scraperService.scrapeAllMarkets();
     console.log('✓ Initial scrape completed successfully\n');
   } catch (error) {
-    console.error('✗ Initial scrape failed:', error.message, '\n');
+    console.error('✗ Initial scrape failed:', error.message);
+    console.log('✓ Server is running with fallback data\n');
   }
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('\nSIGTERM received, shutting down gracefully...');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('\nSIGINT received, shutting down gracefully...');
-  process.exit(0);
 });
 
 module.exports = app;
