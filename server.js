@@ -1,12 +1,12 @@
 // ========================================
-// COMPLETE OPTIMIZED BACKEND FOR RENDER
+// COMPLETE STOCK API BACKEND
+// African stocks + Global stocks from Yahoo Finance
 // ========================================
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cron = require('node-cron');
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -15,24 +15,24 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory cache
+// Cache for all stocks
 let stockCache = {
-  nigeria: { data: [], lastUpdate: null },
-  kenya: { data: [], lastUpdate: null },
-  rwanda: { data: [], lastUpdate: null }
+  african: { data: [], lastUpdate: null },
+  global: { data: [], lastUpdate: null },
+  combined: { data: [], lastUpdate: null }
 };
 
 // ========================================
-// SIMPLIFIED SCRAPERS
+// AFRICAN STOCK SCRAPERS
 // ========================================
 
 class NigeriaScraper {
   async scrapeStocks() {
     try {
-      console.log('Scraping Nigerian stocks...');
+      console.log('📊 Scraping Nigerian stocks...');
       const response = await axios.get('https://afx.kwayisi.org/ngx/', {
         headers: { 'User-Agent': 'Mozilla/5.0' },
-        timeout: 10000
+        timeout: 8000
       });
       
       const $ = cheerio.load(response.data);
@@ -48,39 +48,55 @@ class NigeriaScraper {
           const volumeText = $(cells[4]).text().trim();
           
           if (symbol) {
-            const price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
-            const change = parseFloat(changeText.replace(/[^\d.-]/g, '')) || 0;
-            const changePercent = parseFloat(changePercentText.replace(/[^\d.-]/g, '')) || 0;
-            
             stocks.push({
               symbol,
               name: symbol,
-              price: price.toFixed(2),
-              change: change.toFixed(2),
-              changePercent: changePercent.toFixed(2),
+              price: parseFloat(priceText.replace(/[^\d.]/g, '')) || 0,
+              change: parseFloat(changeText.replace(/[^\d.-]/g, '')) || 0,
+              changePercent: parseFloat(changePercentText.replace(/[^\d.-]/g, '')) || 0,
               volume: volumeText.replace(/,/g, ''),
               market: 'nigeria',
               currency: 'NGN',
+              type: 'african',
               timestamp: new Date().toISOString()
             });
           }
         }
       });
       
-      console.log(`✓ Scraped ${stocks.length} Nigerian stocks`);
+      console.log(`✅ Nigeria: ${stocks.length} stocks`);
       return stocks.length > 0 ? stocks : this.getFallbackData();
       
     } catch (error) {
-      console.error('Nigeria scraping error:', error.message);
+      console.error('❌ Nigeria error:', error.message);
       return this.getFallbackData();
     }
   }
   
   getFallbackData() {
     return [
-      { symbol: 'DANGCEM', name: 'Dangote Cement', price: '285.00', change: '2.50', changePercent: '0.89', volume: '1250000', market: 'nigeria', currency: 'NGN' },
-      { symbol: 'MTNN', name: 'MTN Nigeria', price: '195.00', change: '-1.20', changePercent: '-0.61', volume: '850000', market: 'nigeria', currency: 'NGN' },
-      { symbol: 'BUACEMENT', name: 'BUA Cement', price: '78.50', change: '0.80', changePercent: '1.03', volume: '620000', market: 'nigeria', currency: 'NGN' }
+      { 
+        symbol: 'DANGCEM', 
+        name: 'Dangote Cement', 
+        price: 285.00, 
+        change: 2.50, 
+        changePercent: 0.89, 
+        volume: '1250000', 
+        market: 'nigeria', 
+        currency: 'NGN',
+        type: 'african'
+      },
+      { 
+        symbol: 'MTNN', 
+        name: 'MTN Nigeria', 
+        price: 195.00, 
+        change: -1.20, 
+        changePercent: -0.61, 
+        volume: '850000', 
+        market: 'nigeria', 
+        currency: 'NGN',
+        type: 'african'
+      }
     ].map(stock => ({
       ...stock,
       timestamp: new Date().toISOString()
@@ -91,10 +107,10 @@ class NigeriaScraper {
 class KenyaScraper {
   async scrapeStocks() {
     try {
-      console.log('Scraping Kenyan stocks...');
+      console.log('📊 Scraping Kenyan stocks...');
       const response = await axios.get('https://afx.kwayisi.org/nse/', {
         headers: { 'User-Agent': 'Mozilla/5.0' },
-        timeout: 10000
+        timeout: 8000
       });
       
       const $ = cheerio.load(response.data);
@@ -110,38 +126,55 @@ class KenyaScraper {
           const volumeText = $(cells[4]).text().trim();
           
           if (symbol) {
-            const price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
-            const change = parseFloat(changeText.replace(/[^\d.-]/g, '')) || 0;
-            const changePercent = parseFloat(changePercentText.replace(/[^\d.-]/g, '')) || 0;
-            
             stocks.push({
               symbol,
               name: symbol,
-              price: price.toFixed(2),
-              change: change.toFixed(2),
-              changePercent: changePercent.toFixed(2),
+              price: parseFloat(priceText.replace(/[^\d.]/g, '')) || 0,
+              change: parseFloat(changeText.replace(/[^\d.-]/g, '')) || 0,
+              changePercent: parseFloat(changePercentText.replace(/[^\d.-]/g, '')) || 0,
               volume: volumeText.replace(/,/g, ''),
               market: 'kenya',
               currency: 'KES',
+              type: 'african',
               timestamp: new Date().toISOString()
             });
           }
         }
       });
       
-      console.log(`✓ Scraped ${stocks.length} Kenyan stocks`);
+      console.log(`✅ Kenya: ${stocks.length} stocks`);
       return stocks.length > 0 ? stocks : this.getFallbackData();
       
     } catch (error) {
-      console.error('Kenya scraping error:', error.message);
+      console.error('❌ Kenya error:', error.message);
       return this.getFallbackData();
     }
   }
   
   getFallbackData() {
     return [
-      { symbol: 'EQTY', name: 'Equity Group', price: '45.50', change: '0.75', changePercent: '1.68', volume: '2500000', market: 'kenya', currency: 'KES' },
-      { symbol: 'KCB', name: 'KCB Group', price: '32.25', change: '-0.50', changePercent: '-1.53', volume: '1800000', market: 'kenya', currency: 'KES' }
+      { 
+        symbol: 'EQTY', 
+        name: 'Equity Group', 
+        price: 45.50, 
+        change: 0.75, 
+        changePercent: 1.68, 
+        volume: '2500000', 
+        market: 'kenya', 
+        currency: 'KES',
+        type: 'african'
+      },
+      { 
+        symbol: 'KCB', 
+        name: 'KCB Group', 
+        price: 32.25, 
+        change: -0.50, 
+        changePercent: -1.53, 
+        volume: '1800000', 
+        market: 'kenya', 
+        currency: 'KES',
+        type: 'african'
+      }
     ].map(stock => ({
       ...stock,
       timestamp: new Date().toISOString()
@@ -151,20 +184,33 @@ class KenyaScraper {
 
 class RwandaScraper {
   async scrapeStocks() {
-    try {
-      console.log('Fetching Rwandan stocks...');
-      // Rwanda has limited online data - using fallback
-      return this.getFallbackData();
-    } catch (error) {
-      console.error('Rwanda scraping error:', error.message);
-      return this.getFallbackData();
-    }
+    return this.getFallbackData();
   }
   
   getFallbackData() {
     return [
-      { symbol: 'BK', name: 'Bank of Kigali', price: '320', change: '5', changePercent: '1.59', volume: '15000', market: 'rwanda', currency: 'RWF' },
-      { symbol: 'BLR', name: 'Bralirwa', price: '185', change: '-2', changePercent: '-1.07', volume: '8000', market: 'rwanda', currency: 'RWF' }
+      { 
+        symbol: 'BK', 
+        name: 'Bank of Kigali', 
+        price: 320, 
+        change: 5, 
+        changePercent: 1.59, 
+        volume: '15000', 
+        market: 'rwanda', 
+        currency: 'RWF',
+        type: 'african'
+      },
+      { 
+        symbol: 'BLR', 
+        name: 'Bralirwa', 
+        price: 185, 
+        change: -2, 
+        changePercent: -1.07, 
+        volume: '8000', 
+        market: 'rwanda', 
+        currency: 'RWF',
+        type: 'african'
+      }
     ].map(stock => ({
       ...stock,
       timestamp: new Date().toISOString()
@@ -173,68 +219,170 @@ class RwandaScraper {
 }
 
 // ========================================
-// STOCK SCRAPER SERVICE
+// GLOBAL STOCKS FROM YAHOO FINANCE
 // ========================================
 
-class StockScraperService {
+class GlobalStockFetcher {
   constructor() {
-    this.nigeria = new NigeriaScraper();
-    this.kenya = new KenyaScraper();
-    this.rwanda = new RwandaScraper();
-  }
-  
-  async scrapeAllMarkets() {
-    console.log('\n=== Starting market scrape ===');
-    const startTime = Date.now();
+    this.symbols = {
+      usa: ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM', 'V', 'JNJ'],
+      uk: ['BP.L', 'HSBA.L', 'BARC.L', 'VOD.L', 'LLOY.L'],
+      canada: ['SHOP.TO', 'RY.TO', 'TD.TO', 'ENB.TO', 'CNR.TO']
+    };
     
-    const results = await Promise.allSettled([
-      this.nigeria.scrapeStocks(),
-      this.kenya.scrapeStocks(),
-      this.rwanda.scrapeStocks()
-    ]);
-    
-    const nigeriaStocks = results[0].status === 'fulfilled' ? results[0].value : [];
-    const kenyaStocks = results[1].status === 'fulfilled' ? results[1].value : [];
-    const rwandaStocks = results[2].status === 'fulfilled' ? results[2].value : [];
-    
-    // Update cache
-    stockCache.nigeria = { data: nigeriaStocks, lastUpdate: new Date() };
-    stockCache.kenya = { data: kenyaStocks, lastUpdate: new Date() };
-    stockCache.rwanda = { data: rwandaStocks, lastUpdate: new Date() };
-    
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`=== Scrape completed in ${elapsed}s ===\n`);
-    
-    return {
-      nigeria: nigeriaStocks,
-      kenya: kenyaStocks,
-      rwanda: rwandaStocks,
-      timestamp: new Date().toISOString(),
-      totalStocks: nigeriaStocks.length + kenyaStocks.length + rwandaStocks.length
+    this.marketInfo = {
+      usa: { name: 'United States', currency: 'USD' },
+      uk: { name: 'United Kingdom', currency: 'GBP' },
+      canada: { name: 'Canada', currency: 'CAD' }
     };
   }
   
-  async scrapeMarket(market) {
-    switch(market.toLowerCase()) {
-      case 'nigeria':
-        const nigeriaStocks = await this.nigeria.scrapeStocks();
-        stockCache.nigeria = { data: nigeriaStocks, lastUpdate: new Date() };
-        return nigeriaStocks;
-      case 'kenya':
-        const kenyaStocks = await this.kenya.scrapeStocks();
-        stockCache.kenya = { data: kenyaStocks, lastUpdate: new Date() };
-        return kenyaStocks;
-      case 'rwanda':
-        const rwandaStocks = await this.rwanda.scrapeStocks();
-        stockCache.rwanda = { data: rwandaStocks, lastUpdate: new Date() };
-        return rwandaStocks;
-      default:
-        throw new Error('Invalid market');
+  async fetchGlobalStocks() {
+    console.log('🌍 Fetching global stocks from Yahoo Finance...');
+    
+    const allStocks = [];
+    const allPromises = [];
+    
+    // Fetch US stocks
+    for (const symbol of this.symbols.usa) {
+      allPromises.push(this.fetchStockData(symbol, 'usa'));
+    }
+    
+    // Fetch UK stocks
+    for (const symbol of this.symbols.uk) {
+      allPromises.push(this.fetchStockData(symbol, 'uk'));
+    }
+    
+    // Fetch Canada stocks
+    for (const symbol of this.symbols.canada) {
+      allPromises.push(this.fetchStockData(symbol, 'canada'));
+    }
+    
+    const results = await Promise.allSettled(allPromises);
+    
+    results.forEach(result => {
+      if (result.status === 'fulfilled' && result.value) {
+        allStocks.push(result.value);
+      }
+    });
+    
+    console.log(`✅ Global: ${allStocks.length} stocks loaded`);
+    return allStocks;
+  }
+  
+  async fetchStockData(symbol, market) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`;
+      const response = await axios.get(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        timeout: 5000
+      });
+      
+      const quote = response.data.quoteResponse?.result?.[0];
+      
+      if (quote) {
+        return {
+          symbol: quote.symbol,
+          name: quote.longName || quote.shortName || symbol,
+          price: quote.regularMarketPrice || 0,
+          change: quote.regularMarketChange || 0,
+          changePercent: quote.regularMarketChangePercent || 0,
+          volume: quote.regularMarketVolume || 0,
+          market: market,
+          currency: this.marketInfo[market].currency,
+          type: 'global',
+          marketCap: quote.marketCap || 0,
+          high: quote.regularMarketDayHigh || 0,
+          low: quote.regularMarketDayLow || 0,
+          timestamp: new Date().toISOString()
+        };
+      }
+    } catch (error) {
+      console.error(`❌ Failed to fetch ${symbol}:`, error.message);
+      return null;
     }
   }
 }
 
-const scraperService = new StockScraperService();
+// ========================================
+// MAIN STOCK SERVICE
+// ========================================
+
+class StockService {
+  constructor() {
+    this.nigeria = new NigeriaScraper();
+    this.kenya = new KenyaScraper();
+    this.rwanda = new RwandaScraper();
+    this.globalFetcher = new GlobalStockFetcher();
+  }
+  
+  async scrapeAllStocks() {
+    console.log('\n🔄 Starting full stock data refresh...');
+    const startTime = Date.now();
+    
+    try {
+      // Fetch African stocks
+      const africanPromises = [
+        this.nigeria.scrapeStocks(),
+        this.kenya.scrapeStocks(),
+        this.rwanda.scrapeStocks()
+      ];
+      
+      const africanResults = await Promise.allSettled(africanPromises);
+      const africanStocks = africanResults
+        .filter(r => r.status === 'fulfilled')
+        .flatMap(r => r.value);
+      
+      // Fetch Global stocks
+      const globalStocks = await this.globalFetcher.fetchGlobalStocks();
+      
+      // Update caches
+      stockCache.african = { 
+        data: africanStocks, 
+        lastUpdate: new Date() 
+      };
+      
+      stockCache.global = { 
+        data: globalStocks, 
+        lastUpdate: new Date() 
+      };
+      
+      // Combine all stocks
+      const combinedStocks = [...africanStocks, ...globalStocks];
+      stockCache.combined = { 
+        data: combinedStocks, 
+        lastUpdate: new Date() 
+      };
+      
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`🎉 Refresh completed in ${elapsed}s`);
+      console.log(`📊 Total stocks: ${combinedStocks.length} (African: ${africanStocks.length}, Global: ${globalStocks.length})`);
+      
+      return {
+        success: true,
+        african: africanStocks.length,
+        global: globalStocks.length,
+        total: combinedStocks.length,
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error('❌ Error refreshing stocks:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+  
+  getCachedStocks() {
+    return stockCache.combined.data;
+  }
+}
+
+// Initialize service
+const stockService = new StockService();
 
 // ========================================
 // API ROUTES
@@ -244,34 +392,40 @@ const scraperService = new StockScraperService();
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    service: 'African Stock Market API',
-    version: '1.0.0',
+    service: 'African & Global Stock API',
+    version: '2.0.0',
     endpoints: {
       allStocks: '/api/stocks',
-      marketStocks: '/api/stocks/:market',
-      refreshAll: '/api/refresh',
-      refreshMarket: '/api/refresh/:market'
+      africanStocks: '/api/stocks/african',
+      globalStocks: '/api/stocks/global',
+      refresh: '/api/refresh',
+      health: '/api/health'
+    },
+    cacheStatus: {
+      african: stockCache.african.lastUpdate,
+      global: stockCache.global.lastUpdate,
+      totalStocks: stockCache.combined.data.length
     }
   });
 });
 
-// Get all African market stocks (from cache)
+// Get ALL stocks (African + Global)
 app.get('/api/stocks', (req, res) => {
   try {
-    const allStocks = [
-      ...stockCache.nigeria.data,
-      ...stockCache.kenya.data,
-      ...stockCache.rwanda.data
-    ];
+    const allStocks = stockCache.combined.data;
     
     res.json({
       success: true,
       data: allStocks,
-      totalStocks: allStocks.length,
-      lastUpdate: {
-        nigeria: stockCache.nigeria.lastUpdate,
-        kenya: stockCache.kenya.lastUpdate,
-        rwanda: stockCache.rwanda.lastUpdate
+      stats: {
+        total: allStocks.length,
+        african: allStocks.filter(s => s.type === 'african').length,
+        global: allStocks.filter(s => s.type === 'global').length,
+        markets: [...new Set(allStocks.map(s => s.market))]
+      },
+      cache: {
+        lastUpdate: stockCache.combined.lastUpdate,
+        isCached: true
       },
       timestamp: new Date().toISOString()
     });
@@ -283,27 +437,16 @@ app.get('/api/stocks', (req, res) => {
   }
 });
 
-// Get stocks from specific market
-app.get('/api/stocks/:market', (req, res) => {
+// Get only African stocks
+app.get('/api/stocks/african', (req, res) => {
   try {
-    const { market } = req.params;
-    const marketLower = market.toLowerCase();
-    
-    if (!['nigeria', 'kenya', 'rwanda'].includes(marketLower)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid market. Use: nigeria, kenya, or rwanda'
-      });
-    }
-    
-    const marketData = stockCache[marketLower];
+    const africanStocks = stockCache.african.data;
     
     res.json({
       success: true,
-      market: marketLower,
-      data: marketData.data,
-      totalStocks: marketData.data.length,
-      lastUpdate: marketData.lastUpdate,
+      data: africanStocks,
+      total: africanStocks.length,
+      markets: ['nigeria', 'kenya', 'rwanda'],
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -314,16 +457,36 @@ app.get('/api/stocks/:market', (req, res) => {
   }
 });
 
-// Force refresh all markets
+// Get only Global stocks
+app.get('/api/stocks/global', (req, res) => {
+  try {
+    const globalStocks = stockCache.global.data;
+    
+    res.json({
+      success: true,
+      data: globalStocks,
+      total: globalStocks.length,
+      markets: ['usa', 'uk', 'canada'],
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Refresh all stocks (manual trigger)
 app.post('/api/refresh', async (req, res) => {
   try {
-    console.log('Manual refresh triggered for all markets');
-    const results = await scraperService.scrapeAllMarkets();
+    console.log('🔄 Manual refresh triggered');
+    const result = await stockService.scrapeAllStocks();
     
     res.json({
-      success: true,
-      message: 'All markets refreshed successfully',
-      ...results
+      success: result.success,
+      message: result.success ? 'Stocks refreshed successfully' : 'Refresh failed',
+      ...result
     });
   } catch (error) {
     res.status(500).json({
@@ -333,28 +496,19 @@ app.post('/api/refresh', async (req, res) => {
   }
 });
 
-// Force refresh specific market
-app.post('/api/refresh/:market', async (req, res) => {
-  try {
-    const { market } = req.params;
-    console.log(`Manual refresh triggered for ${market}`);
-    
-    const stocks = await scraperService.scrapeMarket(market);
-    
-    res.json({
-      success: true,
-      market: market,
-      message: `${market} market refreshed successfully`,
-      data: stocks,
-      totalStocks: stocks.length,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
+// Health endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    cache: {
+      africanStocks: stockCache.african.data.length,
+      globalStocks: stockCache.global.data.length,
+      lastUpdate: stockCache.combined.lastUpdate
+    }
+  });
 });
 
 // Search stocks
@@ -365,26 +519,24 @@ app.get('/api/search', (req, res) => {
     if (!q) {
       return res.status(400).json({
         success: false,
-        error: 'Query parameter "q" is required'
+        error: 'Search query "q" is required'
       });
     }
     
-    const allStocks = [
-      ...stockCache.nigeria.data,
-      ...stockCache.kenya.data,
-      ...stockCache.rwanda.data
-    ];
+    const allStocks = stockCache.combined.data;
+    const query = q.toLowerCase();
     
     const results = allStocks.filter(stock => 
-      stock.symbol.toLowerCase().includes(q.toLowerCase()) ||
-      stock.name.toLowerCase().includes(q.toLowerCase())
+      stock.symbol.toLowerCase().includes(query) ||
+      stock.name.toLowerCase().includes(query) ||
+      stock.market.toLowerCase().includes(query)
     );
     
     res.json({
       success: true,
       query: q,
-      data: results,
-      totalResults: results.length
+      results: results,
+      total: results.length
     });
   } catch (error) {
     res.status(500).json({
@@ -398,14 +550,10 @@ app.get('/api/search', (req, res) => {
 // SCHEDULED TASKS
 // ========================================
 
-// Scrape every 30 minutes (less frequent for Render)
+// Refresh every 30 minutes
 cron.schedule('*/30 * * * *', async () => {
-  console.log('\n--- Scheduled scrape starting ---');
-  try {
-    await scraperService.scrapeAllMarkets();
-  } catch (error) {
-    console.error('Scheduled scrape error:', error.message);
-  }
+  console.log('\n⏰ Scheduled refresh starting...');
+  await stockService.scrapeAllStocks();
 });
 
 // ========================================
@@ -413,24 +561,25 @@ cron.schedule('*/30 * * * *', async () => {
 // ========================================
 
 app.listen(PORT, async () => {
-  console.log('\n========================================');
-  console.log('🚀 African Stock Market API');
-  console.log('========================================');
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log('\nAPI Endpoints:');
-  console.log(`  GET  http://localhost:${PORT}/api/stocks`);
-  console.log(`  POST http://localhost:${PORT}/api/refresh`);
-  console.log('========================================\n');
+  console.log('\n' + '='.repeat(50));
+  console.log('🚀 AFRICAN & GLOBAL STOCK API');
+  console.log('='.repeat(50));
+  console.log(`📍 Port: ${PORT}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('\n📡 API Endpoints:');
+  console.log(`   GET  http://localhost:${PORT}/api/stocks`);
+  console.log(`   POST http://localhost:${PORT}/api/refresh`);
+  console.log(`   GET  http://localhost:${PORT}/api/health`);
+  console.log('='.repeat(50) + '\n');
   
-  // Initial scrape on startup
-  console.log('Performing initial market scrape...');
+  // Initial data load
+  console.log('📥 Loading initial stock data...');
   try {
-    await scraperService.scrapeAllMarkets();
-    console.log('✓ Initial scrape completed successfully\n');
+    await stockService.scrapeAllStocks();
+    console.log('✅ Initial data loaded successfully!\n');
   } catch (error) {
-    console.error('✗ Initial scrape failed:', error.message);
-    console.log('✓ Server is running with fallback data\n');
+    console.error('❌ Initial load failed, but server is running');
+    console.log('⚠️  Using empty cache - refresh manually\n');
   }
 });
 
