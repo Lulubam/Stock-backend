@@ -1,7 +1,7 @@
 {
-  "name": "stock-backend-enhanced",
-  "version": "3.0.0",
-  "description": "Enhanced African & Global Stock API with real data",
+  "name": "stock-backend-real-data-only",
+  "version": "5.0.0",
+  "description": "Stock API with REAL DATA ONLY - no fake/made-up data",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,8 +12,5 @@
     "axios": "^1.6.2",
     "cheerio": "^1.0.0-rc.12",
     "node-cron": "^3.0.3"
-  },
-  "engines": {
-    "node": ">=16.0.0"
   }
 }
